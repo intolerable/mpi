@@ -47,14 +47,11 @@ rows = M.nrows . unMatrix
 (!) :: Unbox a => Matrix a -> (Int, Int) -> a
 (!) = (M.!) . unMatrix
 
-multStd :: (Unbox a, Num a) => Matrix a -> Matrix a -> Matrix a
-multStd m n = Matrix $ unMatrix m `M.multStd` unMatrix n
+submatrix :: Unbox a => Int -> Int -> Int -> Int -> Matrix a -> Matrix a
+submatrix r1 r2 c1 c2 = Matrix . M.submatrix r1 r2 c1 c2 . unMatrix
 
-multStd2 :: (Unbox a, Num a) => Matrix a -> Matrix a -> Matrix a
-multStd2 m n = Matrix $ unMatrix m `M.multStd2` unMatrix n
+(<|>) :: Unbox a => Matrix a -> Matrix a -> Matrix a
+m1 <|> m2 = Matrix $ unMatrix m1 M.<|> unMatrix m2
 
-multStrassen :: (Unbox a, Num a) => Matrix a -> Matrix a -> Matrix a
-multStrassen m n = Matrix $ unMatrix m `M.multStrassen` unMatrix n
-
-multStrassenMixed :: (Unbox a, Num a) => Matrix a -> Matrix a -> Matrix a
-multStrassenMixed m n = Matrix $ unMatrix m `M.multStrassenMixed` unMatrix n
+(<->) :: Unbox a => Matrix a -> Matrix a -> Matrix a
+m1 <-> m2 = Matrix $ unMatrix m1 M.<-> unMatrix m2

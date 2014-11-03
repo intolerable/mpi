@@ -1,17 +1,61 @@
 module Main where
 
-import Matrix (Matrix, (!))
+import Matrix (Matrix, (!), (<->))
+
+import Control.Monad
+import Data.Foldable (foldlM)
 import Data.Vector.Unboxed (Unbox)
+import System.Exit
 import qualified Control.Parallel.MPI.Simple as MPI
 import qualified Matrix
 
+globalL :: Int
+globalL = 24
+
+iterations :: Int
+iterations = 100
+
 main :: IO ()
-main = MPI.mpiWorld $ \_size _rank -> do
-  let a = (matrixA 4 :: Matrix Double)
-  let b = initialB 4
-  let d' = inverseDiag a
-  let final = iterate (jacobi a b d') b
-  putStrLn $ Matrix.prettyMatrix $ final !! 50000
+main = MPI.mpiWorld $ \size rank -> do
+  unless ((globalL * globalL) `mod` size == 0) $ do
+    putStrLn "Incorrect number of processes for L (L must be cleanly divisible by N)"
+    exitFailure
+  let a = matrixA globalL :: Matrix Double
+  let b = initialB globalL :: Matrix Double
+  case fromIntegral rank of
+    0 -> do
+      let
+        go m _ = do
+          MPI.bcastSend MPI.commWorld 0 m
+          --mapM_ (putStrLn . Matrix.prettyMatrix) [head a, b, head d']
+          xs <- MPI.gatherRecv MPI.commWorld 0 $
+            jacobi size 0 a b m
+          return $ foldl1 (<->) xs
+      res <- foldlM go b [1..iterations]
+      putStrLn $ Matrix.prettyMatrix res
+    r -> do
+      let
+        go () _ = do
+          x <- MPI.bcastRecv MPI.commWorld 0
+          MPI.gatherSend MPI.commWorld 0 $
+            jacobi size r a b x
+      foldlM go () [1..iterations]
+
+splitMatrix :: Unbox a => Int -> Matrix a -> [Matrix a]
+splitMatrix size m = map (split m) [0..size-1]
+  where rowsPerBlock = Matrix.rows m `div` size
+        nCols = Matrix.columns m
+        startRow b = (b * rowsPerBlock) + 1
+        endRow b = ((b + 1) * rowsPerBlock)
+        split matrix b = Matrix.submatrix (startRow b) (endRow b) 1 nCols matrix
+
+splitMatrixVertically :: Unbox a => Int -> Matrix a -> [Matrix a]
+splitMatrixVertically size m = map (split m) [0..size-1]
+  where rowsPerBlock = Matrix.rows m `div` size
+        nRows = Matrix.columns m
+        startRow b = (b * rowsPerBlock) + 1
+        endRow b = ((b + 1) * rowsPerBlock)
+        split matrix b = Matrix.submatrix 1 nRows (startRow b) (endRow b) matrix
 
 matrixA :: (Unbox a, Num a) => Int -> Matrix a
 matrixA l = Matrix.matrix n n (generator l)
@@ -32,7 +76,7 @@ inverse m = Matrix.matrix (Matrix.columns m) (Matrix.rows m) gen
 inverseDiag :: (Unbox a, Fractional a) => Matrix a -> Matrix a
 inverseDiag = inverse . diagonal
 
-generator :: (Num a, Eq a, Num b) => a -> a -> a -> b
+generator :: Num b => Int -> Int -> Int -> b
 generator _ i j | i == j = -4
 generator _ i j | i == j + 1 = 1
 generator _ i j | i == j - 1 = 1
@@ -45,5 +89,10 @@ initialB l = Matrix.matrix n 1 gen
   where gen _ _ = 1
         n = l * l
 
-jacobi :: (Unbox a, Fractional a) => Matrix a -> Matrix a -> Matrix a -> Matrix a -> Matrix a
-jacobi a b d' x = x + (d' * (b - (a * x)))
+jacobi :: (Show a, Unbox a, Fractional a) => Int -> Int -> Matrix a -> Matrix a -> Matrix a -> Matrix a
+jacobi size rank a b x = -- x' + (d' * (b - (a * x)))
+  Matrix.matrix (Matrix.rows x') 1 $ \i _ ->
+    let i' = ((Matrix.rows x `div` size) * rank) + i in
+    let s = sum [ a ! (i', j) * x ! (j, 1) | j <- [1 .. Matrix.rows x], i' /= j] in
+    (1 / (a ! (i', i'))) * ((b ! (i', 1)) - s)
+  where x' = splitMatrix size x !! rank
