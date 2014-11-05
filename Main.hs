@@ -22,6 +22,7 @@ main = MPI.mpiWorld $ \size rank -> do
     exitFailure
   let a = matrixA globalL :: Matrix Double
   let b = initialB globalL :: Matrix Double
+  t <- MPI.wtime
   case fromIntegral rank of
     0 -> do
       let
@@ -32,6 +33,8 @@ main = MPI.mpiWorld $ \size rank -> do
           return $ foldl1 (<->) xs
       res <- foldlM go b [1..iterations]
       putStrLn $ Matrix.prettyMatrix res
+      finishT <- MPI.wtime
+      print $ finishT - t
     r -> do
       let
         go () _ = do
