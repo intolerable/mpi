@@ -3,6 +3,8 @@ mpi
 
 - Getting it running
 
+ALTERNATIVE (try this first) : probably the best thing is just to use the pre-built binary for DEC-10 machines
+
 1. make sure cabal-install is up to date
 
 > cabal update
@@ -21,20 +23,26 @@ should print
 > > cabal-install version 1.20.0.3
 > > using version 1.20.0.2 of the Cabal library
 
-3. set up a sandbox
+3. install c2hs
+
+> cabal install c2hs
+
+May fail due to lack of disk space
+
+4. set up a sandbox
 
 From inside the mpi-coursework directory
 
 > cabal sandbox init
 > cabal sandbox add-source mpi/ haskell-mpi/ matrix/
 
-4. install necessary packages
+5. install necessary packages
 
-(If this fails to compile, make sure that the include dir and lib dir is correct - these values work on DEC-10 machines)
+(If this fails to compile, make sure that the include dir and lib dir for mpich2 is correct - these values work on DEC-10 machines)
 
 > cabal install mpi matrix haskell-mpi -fmpich14 --extra-lib-dirs=/usr/lib64/mpich2/lib/ --extra-include-dirs=/usr/include/mpich2-x86_64/
 
-5. boot mpd and run
+6. boot mpd and run
 
 > mpd &
 
