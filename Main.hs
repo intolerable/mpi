@@ -23,25 +23,32 @@ main = MPI.mpiWorld $ \size rank -> do
   let a = matrixA globalL :: Matrix Double
   let b = initialB globalL :: Matrix Double
   t <- MPI.wtime
-  case fromIntegral rank of
-    0 -> do
-      let
-        go m _ = do
-          MPI.bcastSend MPI.commWorld 0 m
-          xs <- MPI.gatherRecv MPI.commWorld 0 $
-            jacobi size 0 a b m
-          return $ foldl1 (<->) xs
-      res <- foldlM go b [1..iterations]
-      putStrLn $ Matrix.prettyMatrix res
+  case size of
+    1 -> do
+      let solutions = iterate (jacobiSerial a b (inverseDiag a)) b
+      putStrLn $ Matrix.prettyMatrix $ solutions !! iterations
       finishT <- MPI.wtime
       print $ finishT - t
-    r -> do
-      let
-        go () _ = do
-          x <- MPI.bcastRecv MPI.commWorld 0
-          MPI.gatherSend MPI.commWorld 0 $
-            jacobi size r a b x
-      foldlM go () [1..iterations]
+    _ ->
+      case fromIntegral rank of
+        0 -> do
+          let
+            go m _ = do
+              MPI.bcastSend MPI.commWorld 0 m
+              xs <- MPI.gatherRecv MPI.commWorld 0 $
+                jacobi size 0 a b m
+              return $ foldl1 (<->) xs
+          res <- foldlM go b [1..iterations]
+          putStrLn $ Matrix.prettyMatrix res
+          finishT <- MPI.wtime
+          print $ finishT - t
+        r -> do
+          let
+            go () _ = do
+              x <- MPI.bcastRecv MPI.commWorld 0
+              MPI.gatherSend MPI.commWorld 0 $
+                jacobi size r a b x
+          foldlM go () [1..iterations]
 
 splitMatrix :: Unbox a => Int -> Matrix a -> [Matrix a]
 splitMatrix size m = map (split m) [0..size-1]
@@ -97,3 +104,6 @@ jacobi size rank a b x =
     let i' = ((Matrix.rows x `div` size) * rank) + i in
     let s = sum [ a ! (i', j) * x ! (j, 1) | j <- [1 .. Matrix.rows x], i' /= j] in
     (1 / (a ! (i', i'))) * ((b ! (i', 1)) - s)
+
+jacobiSerial :: (Unbox a, Fractional a) => Matrix a -> Matrix a -> Matrix a -> Matrix a -> Matrix a
+jacobiSerial a b d' x = x + (d' * (b - (a * x)))
