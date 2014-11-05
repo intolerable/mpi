@@ -44,6 +44,12 @@ columns = M.ncols . unMatrix
 rows :: Unbox a => Matrix a -> Int
 rows = M.nrows . unMatrix
 
+map :: (Unbox a, Unbox b) => (a -> b) -> Matrix a -> Matrix b
+map f m = Matrix $ M.map f $ unMatrix m
+
+toList :: Unbox a => Matrix a -> [a]
+toList = M.toList . unMatrix
+
 (!) :: Unbox a => Matrix a -> (Int, Int) -> a
 (!) = (M.!) . unMatrix
 

@@ -15,6 +15,9 @@ globalL = 4
 iterations :: Int
 iterations = 100
 
+tolerance :: Double
+tolerance = 0.01
+
 main :: IO ()
 main = MPI.mpiWorld $ \size rank -> do
   unless ((globalL * globalL) `mod` size == 0) $ do
@@ -26,7 +29,8 @@ main = MPI.mpiWorld $ \size rank -> do
   case size of
     1 -> do
       let solutions = iterate (jacobiSerial a b (inverseDiag a)) b
-      putStrLn $ Matrix.prettyMatrix $ solutions !! iterations
+      --putStrLn $ Matrix.prettyMatrix $ solutions !! iterations
+      print $ head $ dropWhile (\(x,y) -> errorFunction x y > (tolerance ** 2)) (solutions `zip` tail solutions)
       finishT <- MPI.wtime
       print $ finishT - t
     _ ->
@@ -107,3 +111,6 @@ jacobi size rank a b x =
 
 jacobiSerial :: (Unbox a, Fractional a) => Matrix a -> Matrix a -> Matrix a -> Matrix a -> Matrix a
 jacobiSerial a b d' x = x + (d' * (b - (a * x)))
+
+errorFunction :: (Unbox a, Fractional a, Floating a) => Matrix a -> Matrix a -> a
+errorFunction m1 m2 = sum $ Matrix.toList $ Matrix.map (**2) $ m1 - m2
