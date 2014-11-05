@@ -13,7 +13,7 @@ globalL :: Int
 globalL = 4
 
 iterations :: Int
-iterations =
+iterations = 100
 
 main :: IO ()
 main = MPI.mpiWorld $ \size rank -> do
