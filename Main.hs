@@ -5,6 +5,7 @@ import Matrix (Matrix, (!), (<->))
 import Control.Monad
 import Data.Vector.Unboxed (Unbox)
 import System.Exit
+import Text.Printf
 import qualified Control.Parallel.MPI.Simple as MPI
 import qualified Matrix
 
@@ -28,7 +29,7 @@ main = MPI.mpiWorld $ \size rank -> do
       putStrLn $ Matrix.prettyMatrix $ snd $ head $
         dropWhile (\(x,y) -> errorFunction x y > (tolerance ** 2)) (solutions `zip` tail solutions)
       finishT <- MPI.wtime
-      print $ finishT - t
+      printf "%.5f\n" $ finishT - t
     _ ->
       do
         let
@@ -43,7 +44,7 @@ main = MPI.mpiWorld $ \size rank -> do
         when (rank == 0) $ do
           putStrLn $ Matrix.prettyMatrix res
           finishT <- MPI.wtime
-          print $ finishT - t
+          printf "%.5f\n" $ finishT - t
 
 matrixA :: (Unbox a, Num a) => Int -> Matrix a
 matrixA l = Matrix.matrix n n (generator l)
