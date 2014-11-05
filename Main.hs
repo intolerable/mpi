@@ -3,7 +3,6 @@ module Main where
 import Matrix (Matrix, (!), (<->))
 
 import Control.Monad
-import Data.Foldable (foldlM)
 import Data.Vector.Unboxed (Unbox)
 import System.Exit
 import qualified Control.Parallel.MPI.Simple as MPI
@@ -29,30 +28,39 @@ main = MPI.mpiWorld $ \size rank -> do
   case size of
     1 -> do
       let solutions = iterate (jacobiSerial a b (inverseDiag a)) b
-      --putStrLn $ Matrix.prettyMatrix $ solutions !! iterations
-      print $ head $ dropWhile (\(x,y) -> errorFunction x y > (tolerance ** 2)) (solutions `zip` tail solutions)
+      putStrLn $ Matrix.prettyMatrix $ snd $ head $
+        dropWhile (\(x,y) -> errorFunction x y > (tolerance ** 2)) (solutions `zip` tail solutions)
       finishT <- MPI.wtime
       print $ finishT - t
     _ ->
       case fromIntegral rank of
         0 -> do
           let
-            go m _ = do
-              MPI.bcastSend MPI.commWorld 0 m
+            go x = do
+              MPI.bcastSend MPI.commWorld 0 x
               xs <- MPI.gatherRecv MPI.commWorld 0 $
-                jacobi size 0 a b m
-              return $ foldl1 (<->) xs
-          res <- foldlM go b [1..iterations]
+                jacobi size 0 a b x
+              let newX = foldl1 (<->) xs
+              if errorFunction x newX < (tolerance ** 2)
+                then do
+                  MPI.bcastSend MPI.commWorld 0 True
+                  return newX
+                else do
+                  MPI.bcastSend MPI.commWorld 0 False
+                  go newX
+          res <- go b
           putStrLn $ Matrix.prettyMatrix res
           finishT <- MPI.wtime
           print $ finishT - t
         r -> do
           let
-            go () _ = do
+            go = do
               x <- MPI.bcastRecv MPI.commWorld 0
               MPI.gatherSend MPI.commWorld 0 $
                 jacobi size r a b x
-          foldlM go () [1..iterations]
+              converged <- MPI.bcastRecv MPI.commWorld 0
+              if converged then return () else go
+          go
 
 splitMatrix :: Unbox a => Int -> Matrix a -> [Matrix a]
 splitMatrix size m = map (split m) [0..size-1]
