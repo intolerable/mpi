@@ -1,0 +1,43 @@
+mpi
+---
+
+- Getting it running
+
+1. make sure cabal-install is up to date
+
+> cabal update
+> cabal install cabal-install
+
+2. make sure newest version of cabal is on your path
+
+Adding ~/.cabal/bin to your $PATH should make this work
+
+> cabal --version
+
+should be
+
+> > cabal-install version 1.20.0.3
+> > using version 1.20.0.2 of the Cabal library
+
+3. set up a sandbox
+
+From inside the mpi-coursework directory
+
+> cabal sandbox init
+> cabal sandbox add-source mpi/ haskell-mpi/ matrix/
+
+4. install necessary packages
+
+(If this fails to compile, make sure that the include dir and lib dir is correct - these values work on DEC-10 machines)
+
+> cabal install mpi matrix haskell-mpi -fmpich14 --extra-lib-dirs=/usr/lib64/mpich2/lib/ --extra-include-dirs=/usr/include/mpich2-x86_64/
+
+5. boot mpd and run
+
+> mpd &
+
+switch this for whatever command should be used for booting mpd
+
+> LD_LIBRARY_PATH=/usr/lib64/mpich2/lib/ mpirun -np 4 .cabal-sandbox/bin/mpi
+
+switch the -np argument with however many processes to run it on

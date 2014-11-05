@@ -10,10 +10,10 @@ import qualified Control.Parallel.MPI.Simple as MPI
 import qualified Matrix
 
 globalL :: Int
-globalL = 24
+globalL = 4
 
 iterations :: Int
-iterations = 100
+iterations =
 
 main :: IO ()
 main = MPI.mpiWorld $ \size rank -> do
@@ -27,7 +27,6 @@ main = MPI.mpiWorld $ \size rank -> do
       let
         go m _ = do
           MPI.bcastSend MPI.commWorld 0 m
-          --mapM_ (putStrLn . Matrix.prettyMatrix) [head a, b, head d']
           xs <- MPI.gatherRecv MPI.commWorld 0 $
             jacobi size 0 a b m
           return $ foldl1 (<->) xs
@@ -90,9 +89,8 @@ initialB l = Matrix.matrix n 1 gen
         n = l * l
 
 jacobi :: (Show a, Unbox a, Fractional a) => Int -> Int -> Matrix a -> Matrix a -> Matrix a -> Matrix a
-jacobi size rank a b x = -- x' + (d' * (b - (a * x)))
-  Matrix.matrix (Matrix.rows x') 1 $ \i _ ->
+jacobi size rank a b x =
+  Matrix.matrix (Matrix.rows x `div` 2) 1 $ \i _ ->
     let i' = ((Matrix.rows x `div` size) * rank) + i in
     let s = sum [ a ! (i', j) * x ! (j, 1) | j <- [1 .. Matrix.rows x], i' /= j] in
     (1 / (a ! (i', i'))) * ((b ! (i', 1)) - s)
-  where x' = splitMatrix size x !! rank
