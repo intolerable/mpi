@@ -1,4 +1,4 @@
-module Main where
+module Main (main) where
 
 import Matrix (Matrix, (!), (<->))
 
@@ -10,9 +10,6 @@ import qualified Matrix
 
 globalL :: Int
 globalL = 4
-
-iterations :: Int
-iterations = 100
 
 tolerance :: Double
 tolerance = 0.01
@@ -33,50 +30,20 @@ main = MPI.mpiWorld $ \size rank -> do
       finishT <- MPI.wtime
       print $ finishT - t
     _ ->
-      case fromIntegral rank of
-        0 -> do
-          let
-            go x = do
-              MPI.bcastSend MPI.commWorld 0 x
-              xs <- MPI.gatherRecv MPI.commWorld 0 $
-                jacobi size 0 a b x
-              let newX = foldl1 (<->) xs
-              if errorFunction x newX < (tolerance ** 2)
-                then do
-                  MPI.bcastSend MPI.commWorld 0 True
-                  return newX
-                else do
-                  MPI.bcastSend MPI.commWorld 0 False
-                  go newX
-          res <- go b
+      do
+        let
+          go x = do
+            xs <- MPI.allgather MPI.commWorld $
+              jacobi size (fromIntegral rank) a b x
+            let newX = foldl1 (<->) xs
+            if errorFunction x newX < (tolerance ** 2)
+              then return newX
+              else go newX
+        res <- go b
+        when (rank == 0) $ do
           putStrLn $ Matrix.prettyMatrix res
           finishT <- MPI.wtime
           print $ finishT - t
-        r -> do
-          let
-            go = do
-              x <- MPI.bcastRecv MPI.commWorld 0
-              MPI.gatherSend MPI.commWorld 0 $
-                jacobi size r a b x
-              converged <- MPI.bcastRecv MPI.commWorld 0
-              if converged then return () else go
-          go
-
-splitMatrix :: Unbox a => Int -> Matrix a -> [Matrix a]
-splitMatrix size m = map (split m) [0..size-1]
-  where rowsPerBlock = Matrix.rows m `div` size
-        nCols = Matrix.columns m
-        startRow b = (b * rowsPerBlock) + 1
-        endRow b = ((b + 1) * rowsPerBlock)
-        split matrix b = Matrix.submatrix (startRow b) (endRow b) 1 nCols matrix
-
-splitMatrixVertically :: Unbox a => Int -> Matrix a -> [Matrix a]
-splitMatrixVertically size m = map (split m) [0..size-1]
-  where rowsPerBlock = Matrix.rows m `div` size
-        nRows = Matrix.columns m
-        startRow b = (b * rowsPerBlock) + 1
-        endRow b = ((b + 1) * rowsPerBlock)
-        split matrix b = Matrix.submatrix 1 nRows (startRow b) (endRow b) matrix
 
 matrixA :: (Unbox a, Num a) => Int -> Matrix a
 matrixA l = Matrix.matrix n n (generator l)
