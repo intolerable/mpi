@@ -90,7 +90,7 @@ initialB l = Matrix.matrix n 1 gen
 
 jacobi :: (Show a, Unbox a, Fractional a) => Int -> Int -> Matrix a -> Matrix a -> Matrix a -> Matrix a
 jacobi size rank a b x =
-  Matrix.matrix (Matrix.rows x `div` 2) 1 $ \i _ ->
+  Matrix.matrix (Matrix.rows x `div` size) 1 $ \i _ ->
     let i' = ((Matrix.rows x `div` size) * rank) + i in
     let s = sum [ a ! (i', j) * x ! (j, 1) | j <- [1 .. Matrix.rows x], i' /= j] in
     (1 / (a ! (i', i'))) * ((b ! (i', 1)) - s)

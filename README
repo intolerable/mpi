@@ -8,13 +8,15 @@ mpi
 > cabal update
 > cabal install cabal-install
 
+If this fails, the issue is most likely a lack of disk space.
+
 2. make sure newest version of cabal is on your path
 
 Adding ~/.cabal/bin to your $PATH should make this work
 
 > cabal --version
 
-should be
+should print
 
 > > cabal-install version 1.20.0.3
 > > using version 1.20.0.2 of the Cabal library
